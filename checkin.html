@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Check-in Evento</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Biblioteca de leitura QR -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #111;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      margin: 10px 0;
+    }
+
+    #reader {
+      width: 100%;
+      max-width: 400px;
+      margin-top: 10px;
+    }
+
+    #result {
+      margin-top: 20px;
+      width: 90%;
+      max-width: 400px;
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+      font-size: 22px;
+      display: none;
+    }
+
+    .ok {
+      background: #0a7a29;
+    }
+
+    .error {
+      background: #a10000;
+    }
+
+    .info {
+      background: #333;
+    }
+
+    button {
+      margin-top: 15px;
+      padding: 15px;
+      width: 100%;
+      font-size: 20px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    button.confirm {
+      background: #00c853;
+      color: #000;
+    }
+
+    button.cancel {
+      background: #444;
+      color: #fff;
+    }
+
+    .small {
+      font-size: 16px;
+      opacity: 0.8;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Check-in</h1>
+
+  <div id="reader"></div>
+
+  <div id="result" class="info">
+    <div id="message"></div>
+    <div class="small" id="details"></div>
+
+    <button class="confirm" id="confirmBtn">CONFIRMAR ENTRADA</button>
+    <button class="cancel" id="cancelBtn">CANCELAR</button>
+  </div>
+
+  <script>
+    /*************** CONFIGURAÇÃO *****************/
+    const PREVIEW_URL = "https://SEU_N8N/webhook/checkin/preview";
+    const CONFIRM_URL = "https://SEU_N8N/webhook/checkin/confirm";
+    const AUTH_TOKEN = "EVENTO-PALESTRA-2026";
+    /*********************************************/
+
+    let currentId = null;
+    let locked = false;
+
+    const resultDiv = document.getElementById("result");
+    const messageDiv = document.getElementById("message");
+    const detailsDiv = document.getElementById("details");
+    const confirmBtn = document.getElementById("confirmBtn");
+    const cancelBtn = document.getElementById("cancelBtn");
+
+    function showResult(type, message, details = "") {
+      resultDiv.className = "";
+      resultDiv.classList.add(type);
+      messageDiv.innerText = message;
+      detailsDiv.innerText = details;
+      resultDiv.style.display = "block";
+    }
+
+    function reset() {
+      resultDiv.style.display = "none";
+      currentId = null;
+      locked = false;
+    }
+
+    cancelBtn.onclick = reset;
+
+    confirmBtn.onclick = async () => {
+      if (!currentId) return;
+
+      try {
+        const res = await fetch(CONFIRM_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + AUTH_TOKEN
+          },
+          body: JSON.stringify({ id: currentId })
+        });
+
+        const data = await res.json();
+
+        if (data.status === "OK") {
+          navigator.vibrate?.(200);
+          showResult("ok", "✅ ENTRADA LIBERADA");
+          setTimeout(reset, 1200);
+        } else {
+          showResult("error", "❌ " + data.message);
+        }
+      } catch (e) {
+        showResult("error", "Erro ao confirmar");
+      }
+    };
+
+    function onScanSuccess(text) {
+      if (locked) return;
+      locked = true;
+
+      let id = text;
+
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed.id) id = parsed.id;
+      } catch {}
+
+      currentId = id;
+
+      fetch(PREVIEW_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id })
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.status === "VALIDO") {
+            showResult(
+              "ok",
+              "INGRESSO VÁLIDO",
+              `Tipo: ${data.type || "-"}`
+            );
+          } else {
+            showResult("error", "❌ " + data.message);
+          }
+        })
+        .catch(() => {
+          showResult("error", "Erro de conexão");
+        });
+    }
+
+    const html5QrCode = new Html5Qrcode("reader");
+
+    Html5Qrcode.getCameras().then(cameras => {
+      if (cameras.length === 0) {
+        alert("Nenhuma câmera encontrada");
+        return;
+      }
+
+      html5QrCode.start(
+        cameras[0].id,
+        { fps: 10, qrbox: 250 },
+        onScanSuccess
+      );
+    });
+  </script>
+</body>
+</html>
