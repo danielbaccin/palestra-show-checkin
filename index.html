@@ -195,11 +195,20 @@
         return;
       }
 
-      html5QrCode.start(
-        cameras[0].id,
-        { fps: 10, qrbox: 250 },
-        onScanSuccess
-      );
+      const backCamera =
+  cameras.find(c => c.label.toLowerCase().includes("back")) ||
+  cameras.find(c => c.label.toLowerCase().includes("rear")) ||
+  cameras[cameras.length - 1];
+
+html5QrCode.start(
+  backCamera.id,
+  {
+    fps: 10,
+    qrbox: { width: 250, height: 250 }
+  },
+  onScanSuccess
+);
+
     });
   </script>
 </body>
