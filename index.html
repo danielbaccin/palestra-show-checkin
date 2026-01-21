@@ -89,7 +89,7 @@
     <div id="message"></div>
     <div class="small" id="details"></div>
 
-    <button class="confirm" id="confirmBtn">CONFIRMAR ENTRADA</button>
+    <button class="confirm" id="confirmBtn" style="display:none">CONFIRMAR ENTRADA</button>
     <button class="cancel" id="cancelBtn">CANCELAR</button>
   </div>
 
@@ -121,6 +121,11 @@
       resultDiv.style.display = "none";
       currentId = null;
       locked = false;
+      showConfirmButton(false);
+    }
+
+    function showConfirmButton(show) {
+      confirmBtn.style.display = show ? "block" : "none";
     }
 
     cancelBtn.onclick = reset;
@@ -143,6 +148,7 @@
         if (data.status === "OK") {
           navigator.vibrate?.(200);
           showResult("ok", "✅ ENTRADA LIBERADA");
+          showConfirmButton(false);
           setTimeout(reset, 1200);
         } else {
           showResult("error", "❌ " + data.message);
@@ -178,8 +184,10 @@
               "INGRESSO VÁLIDO",
               `Nome: ${data.name || "-"}`
             );
+            showConfirmButton(true);
           } else {
             showResult("error", "❌ " + data.message);
+            showConfirmButton(false);
           }
         })
         .catch(() => {
